@@ -1,0 +1,279 @@
+{
+  "marketplaces": {
+    "claude-plugins-official": {
+      "type": "github",
+      "repo": "anthropics/claude-plugins-official"
+    },
+    "superpowers-dev": {
+      "type": "github",
+      "repo": "obra/superpowers"
+    },
+    "claude-code-workflows": {
+      "type": "github",
+      "repo": "wshobson/agents"
+    },
+    "thedotmack": {
+      "type": "github",
+      "repo": "thedotmack/claude-mem"
+    },
+    "mcpmarket-my-toolkit": {
+      "type": "directory",
+      "path": "/Users/micz/.claude/plugins/mcpmarket-my-toolkit"
+    },
+    "ui-ux-pro-max-skill": {
+      "type": "github",
+      "repo": "nextlevelbuilder/ui-ux-pro-max-skill"
+    },
+    "playwright-skill": {
+      "type": "github",
+      "repo": "lackeyjb/playwright-skill"
+    },
+    "claude-code-plugins": {
+      "type": "github",
+      "repo": "anthropics/claude-code"
+    },
+    "severity1-marketplace": {
+      "type": "github",
+      "repo": "severity1/severity1-marketplace"
+    },
+    "ruflo": {
+      "type": "github",
+      "repo": "ruvnet/ruflo"
+    },
+    "openai-developers": {
+      "type": "git",
+      "url": "https://github.com/openai/openai-developers-for-claude.git"
+    },
+    "openai-codex": {
+      "type": "github",
+      "repo": "openai/codex-plugin-cc"
+    },
+    "cfab-mody": {
+      "type": "directory",
+      "path": "/Users/micz/__DEV__/cfab_claude_mods"
+    },
+    "dyrygent": {
+      "type": "directory",
+      "path": "/Users/micz/__DEV__/__CFAB_mods/dyrygent"
+    },
+    "kontekst": {
+      "type": "directory",
+      "path": "/Users/micz/__DEV__/__CFAB_mods/kontekst"
+    },
+    "limity": {
+      "type": "directory",
+      "path": "/Users/micz/__DEV__/__CFAB_mods/limity"
+    },
+    "ponytail": {
+      "type": "github",
+      "repo": "DietrichGebert/ponytail"
+    }
+  },
+  "plugins": [
+    "accessibility-compliance@claude-code-workflows",
+    "adobe-for-creativity@synced",
+    "agent-teams@claude-code-workflows",
+    "application-performance@claude-code-workflows",
+    "backend-development@claude-code-workflows",
+    "box@synced",
+    "brand-landingpage@claude-code-workflows",
+    "claude-code-setup@claude-plugins-official",
+    "claude-mem@thedotmack",
+    "code-refactoring@claude-code-workflows",
+    "code-review@claude-plugins-official",
+    "code-simplifier@claude-plugins-official",
+    "codebase-cleanup@claude-code-workflows",
+    "codex@openai-codex",
+    "cowork-plugin-management@synced",
+    "design@synced",
+    "dyrygent@dyrygent",
+    "engineering@synced",
+    "figma@synced",
+    "frontend-design@claude-plugins-official",
+    "frontend-mobile-development@claude-code-workflows",
+    "instagram@synced",
+    "koniec-tury@cfab-mody",
+    "kontekst@kontekst",
+    "limity@limity",
+    "mcpmarket-my-toolkit@mcpmarket-my-toolkit",
+    "pdf-viewer@synced",
+    "playground@claude-plugins-official",
+    "playwright-skill@playwright-skill",
+    "playwright@claude-plugins-official",
+    "ponytail@ponytail",
+    "postep@cfab-mody",
+    "productivity@synced",
+    "prompt-improver@severity1-marketplace",
+    "python-development@claude-code-workflows",
+    "rust-analyzer-lsp@claude-plugins-official",
+    "straznik@cfab-mody",
+    "superpowers@superpowers-dev",
+    "swift-lsp@claude-plugins-official",
+    "swiftui-pro@skills-dir",
+    "ui-design@claude-code-workflows",
+    "ui-ux-pro-max@ui-ux-pro-max-skill",
+    "vercel@claude-plugins-official"
+  ],
+  "skills": {
+    "swiftui-pro": {
+      "source": "twostraws/swiftui-agent-skill",
+      "sourceType": "github"
+    },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github"
+    },
+    "swift-architecture-skill": {
+      "source": "efremidze/swift-architecture-skill",
+      "sourceType": "github"
+    },
+    "hallmark": {
+      "source": "nutlope/hallmark",
+      "sourceType": "github"
+    },
+    "tauri-v2": {
+      "source": "nodnarbnitram/claude-code-extensions",
+      "sourceType": "github"
+    },
+    "herdr": {
+      "source": "ogulcancelik/herdr",
+      "sourceType": "github"
+    },
+    "hyperframes-animation": {
+      "source": "heygen-com/hyperframes",
+      "sourceType": "github"
+    },
+    "remotion-best-practices": {
+      "source": "remotion-dev/skills",
+      "sourceType": "github"
+    },
+    "ffmpeg": {
+      "source": "digitalsamba/claude-code-video-toolkit",
+      "sourceType": "github"
+    },
+    "brandkit": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "design-taste-frontend": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "design-taste-frontend-v1": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "design-taste-frontend-v2-experimental": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "full-output-enforcement": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "gpt-taste": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "high-end-visual-design": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "image-to-code": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "imagegen-frontend-mobile": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "imagegen-frontend-web": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "industrial-brutalist-ui": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "minimalist-ui": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "redesign-existing-projects": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    },
+    "stitch-design-taste": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github"
+    }
+  },
+  "localSkills": [
+    ".trash",
+    "brandkit",
+    "design-taste-frontend",
+    "design-taste-frontend-v1",
+    "design-taste-frontend-v2-experimental",
+    "ffmpeg",
+    "find-skills",
+    "full-output-enforcement",
+    "gpt-taste",
+    "hallmark",
+    "herdr",
+    "high-end-visual-design",
+    "hyperframes-animation",
+    "image-to-code",
+    "imagegen-frontend-mobile",
+    "imagegen-frontend-web",
+    "industrial-brutalist-ui",
+    "minimalist-ui",
+    "react-doctor",
+    "redesign-existing-projects",
+    "remotion-best-practices",
+    "reverse-engineer-anything",
+    "stitch-design-taste",
+    "swift-architecture-skill",
+    "swiftui-pro",
+    "synced",
+    "tauri-android-distribution",
+    "tauri-app-resources",
+    "tauri-architecture",
+    "tauri-binary-size",
+    "tauri-calling-frontend",
+    "tauri-calling-rust",
+    "tauri-capabilities",
+    "tauri-code-signing",
+    "tauri-configuration",
+    "tauri-crabnebula",
+    "tauri-csp",
+    "tauri-debugging",
+    "tauri-ecosystem-security",
+    "tauri-frontend-events",
+    "tauri-frontend-js",
+    "tauri-frontend-rust",
+    "tauri-http-headers",
+    "tauri-ios-distribution",
+    "tauri-ipc",
+    "tauri-lifecycle-security",
+    "tauri-linux-packaging",
+    "tauri-macos-distribution",
+    "tauri-migration",
+    "tauri-nodejs-sidecar",
+    "tauri-permissions",
+    "tauri-pipeline-github",
+    "tauri-plugin-permissions",
+    "tauri-plugins",
+    "tauri-process-model",
+    "tauri-project-setup",
+    "tauri-runtime-authority",
+    "tauri-scope",
+    "tauri-sidecar",
+    "tauri-splashscreen",
+    "tauri-system-tray",
+    "tauri-testing",
+    "tauri-updating-dependencies",
+    "tauri-v2",
+    "tauri-window-customization",
+    "tauri-windows-distribution"
+  ]
+}
