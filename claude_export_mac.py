@@ -2,7 +2,7 @@
 """Eksport zestawu Claude Code z Maca — jeden plik, bez innych zależności.
 
 Uruchom w Terminalu:   python3 claude_export_mac.py
-Wynik:                 ~/Desktop/claude-setup.json  (przenieś go na Windows i zrób `claude_sync.py import`)
+Wynik:                 claude-setup.json w repo (obok skryptu) — commit + push, na Windows pull i `claude_sync.py import`
 
 Zbiera: marketplace'y (~/.claude/plugins/known_marketplaces.json), pluginy (`claude plugin list --json`),
 skille `npx skills` (~/.agents/.skill-lock.json), nazwy lokalnych skilli (~/.claude/skills/*).
@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 HOME = Path.home()
-OUT = Path(sys.argv[1]).expanduser() if len(sys.argv) > 1 else HOME / "Desktop" / "claude-setup.json"
+OUT = Path(sys.argv[1]).expanduser() if len(sys.argv) > 1 else Path(__file__).resolve().parent / "claude-setup.json"
 REPO = re.compile(r"^[\w.-]+/[\w.-]+$")
 GIT_URL = re.compile(r"^https://[\w.-]+/[\w./~-]+$")
 
@@ -91,7 +91,8 @@ def main():
     print(f"  pluginy:       {len(snap['plugins'])}")
     print(f"  skille (npx):  {len(snap['skills'])}")
     print(f"  skille lokalne:{len(snap['localSkills']):>2}  (do skopiowania ręcznie z ~/.claude/skills)")
-    print("\nNa Windows:  python claude_sync.py import claude-setup.json --apply")
+    print("\nTeraz: git add claude-setup.json && git commit -m 'claude setup' && git push")
+    print("Na Windows:  git pull  i  python claude_sync.py import --apply")
     return 0
 
 

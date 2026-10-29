@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python claude_sync.py import --help)",
+      "Bash(python -m pytest -q)"
+    ]
+  }
+}

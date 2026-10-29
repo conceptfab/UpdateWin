@@ -121,10 +121,11 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(errors="replace")
     p = argparse.ArgumentParser(description="Przenosi pluginy Claude Code i skille między komputerami.")
     sub = p.add_subparsers(dest="cmd", required=True)
+    default_file = Path(__file__).resolve().parent / "claude-setup.json"  # w repo, synchronizowany przez git
     e = sub.add_parser("export", help="zapisz zestaw z tego komputera")
-    e.add_argument("file", type=Path)
+    e.add_argument("file", type=Path, nargs="?", default=default_file)
     i = sub.add_parser("import", help="porównaj z plikiem i doinstaluj brakujące")
-    i.add_argument("file", type=Path)
+    i.add_argument("file", type=Path, nargs="?", default=default_file)
     i.add_argument("--apply", action="store_true", help="uruchom polecenia (domyślnie tylko podgląd)")
     args = p.parse_args(argv)
 
