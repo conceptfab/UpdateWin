@@ -7,8 +7,8 @@
 |---|---|
 | **Wersja** | 1.0 — 2026-10-29 |
 | **Platforma** | Windows 10/11 (działa też na macOS/Linux) |
-| **Wymagania** | Python 3.10+, tylko biblioteka standardowa |
-| **Plik** | `update.py` (testy: `test_update.py`) |
+| **Wymagania** | Python 3.10+, tylko biblioteka standardowa (GUI: PyQt6 6.5+) |
+| **Plik** | `update.py`, GUI `gui.py` (testy: `test_update.py`, `test_gui.py`) |
 
 ## 1. Użycie
 
@@ -20,6 +20,15 @@ python update.py --only npm,skills    # wybrane źródła
 python update.py --no-refresh         # bez odświeżania marketplace'ów (szybciej, offline)
 python update.py --python C:\Python313\python.exe   # inny Python dla pip
 ```
+
+### 1.1 GUI (PyQt6)
+
+```
+uv run gui.py                         # uv sam doinstaluje PyQt6 (nagłówek PEP 723)
+pip install PyQt6 && python gui.py    # bez uv
+```
+
+Okno sprawdza wszystkie źródła równolegle zaraz po starcie. Nieaktualne pozycje mają pola wyboru (domyślnie zaznaczone), „Aktualizuj (N)” aktualizuje zaznaczone po potwierdzeniu. Wyjście poleceń trafia na żywo do „Dziennika” (stdin zamknięty — bez promptów). Po aktualizacji te źródła są sprawdzane ponownie. „Python dla pip” domyślnie wskazuje Pythona z PATH z pominięciem venv-ów (także środowiska `uv run`). Motyw jasny/ciemny według systemu. Zamknięcie okna w trakcie operacji wymaga potwierdzenia.
 
 Kod wyjścia: `0` — wszystko się udało, `1` — któreś źródło lub aktualizacja zakończyły się błędem.
 
