@@ -2,7 +2,9 @@ import contextlib
 import io
 import os
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -59,6 +61,21 @@ class GuiTests(unittest.TestCase):
         self.assertIn("!! pip: aktualizacja zakończona błędem", text)
         self.assertNotIn("!! npm", text)
         self.assertEqual(finished, [["npm", "pip"]])
+
+    def test_log_file_gets_header_output_and_tracebacks(self):
+        path = Path(tempfile.mkdtemp()) / "sub" / "update.log"
+        w = gui.Window(path)
+        try:
+            1 / 0
+        except ZeroDivisionError:
+            with contextlib.redirect_stderr(io.StringIO()):
+                w.report_exception(*sys.exc_info())
+        w.append_log("hej\n")
+        w.log_file.close()
+        text = path.read_text(encoding="utf-8")
+        for expected in ("=== UpdateWin", "Python", "nieobsłużony wyjątek", "ZeroDivisionError", "hej"):
+            self.assertIn(expected, text)
+        self.assertIn("ZeroDivisionError", w.log.toPlainText())
 
 
 if __name__ == "__main__":

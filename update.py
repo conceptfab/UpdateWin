@@ -16,8 +16,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 HOME = Path.home()
-ENV = {**os.environ, "NO_COLOR": "1", "NO_UPDATE_NOTIFIER": "1",
+ENV = {**os.environ, "NO_COLOR": "1", "NO_UPDATE_NOTIFIER": "1", "PYTHONUTF8": "1",  # pip: UTF-8, not cp1250
        "PIP_DISABLE_PIP_VERSION_CHECK": "1", "PIP_NO_INPUT": "1"}
+CREATIONFLAGS = 0  # gui.py sets CREATE_NO_WINDOW: no console window flashes under pythonw
 # Names passed to commands: no leading "-" (option injection), no cmd.exe metacharacters (npm.cmd, claude.cmd).
 SAFE_NAME = re.compile(r"^[@\w][\w@./-]*$")
 REPO = re.compile(r"^[\w.-]+/[\w.-]+$")
@@ -46,7 +47,7 @@ def tool(name: str) -> str:
 
 def run(args: list[str], timeout: int = 300) -> subprocess.CompletedProcess:
     return subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                          timeout=timeout, env=ENV)
+                          timeout=timeout, env=ENV, creationflags=CREATIONFLAGS)
 
 
 def run_ok(args: list[str], timeout: int = 300) -> str:

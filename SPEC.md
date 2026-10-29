@@ -24,11 +24,15 @@ python update.py --python C:\Python313\python.exe   # inny Python dla pip
 ### 1.1 GUI (PyQt6)
 
 ```
+UpdateWin.bat                         # Windows: dwuklik (uv, inaczej py/python + pip install PyQt6)
+UpdateWin.command                     # macOS: dwuklik w Finderze
 uv run gui.py                         # uv sam doinstaluje PyQt6 (nagłówek PEP 723)
 pip install PyQt6 && python gui.py    # bez uv
 ```
 
 Okno sprawdza wszystkie źródła równolegle zaraz po starcie. Nieaktualne pozycje mają pola wyboru (domyślnie zaznaczone), „Aktualizuj (N)” aktualizuje zaznaczone po potwierdzeniu. Wyjście poleceń trafia na żywo do „Dziennika” (stdin zamknięty — bez promptów). Po aktualizacji te źródła są sprawdzane ponownie. „Python dla pip” domyślnie wskazuje Pythona z PATH z pominięciem venv-ów (także środowiska `uv run`). Motyw jasny/ciemny według systemu. Zamknięcie okna w trakcie operacji wymaga potwierdzenia.
+
+Dziennik jest też dopisywany do pliku `%LOCALAPPDATA%\UpdateWin\update.log` (macOS/Linux: `~/.updatewin.log`), z nagłówkiem sesji (system, wersja Pythona); powyżej 1 MB poprzedni plik przechodzi do `update.log.1`. Nieobsłużone wyjątki (wątek GUI i wątki robocze) trafiają z pełnym tracebackiem do dziennika. Polecenia uruchamiane z GUI nie otwierają okien konsoli (`CREATE_NO_WINDOW`), a `PYTHONUTF8=1` wymusza wyjście pip w UTF-8.
 
 Kod wyjścia: `0` — wszystko się udało, `1` — któreś źródło lub aktualizacja zakończyły się błędem.
 

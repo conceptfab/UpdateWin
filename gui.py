@@ -12,10 +12,12 @@ from __future__ import annotations
 import contextlib
 import io
 import os
+import platform
 import shutil
 import subprocess
 import sys
 import threading
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -33,6 +35,8 @@ TITLES = {"npm": "Globalne pakiety npm", "npx": "Cache npx", "pip": "Pakiety pip
           "claude": "Pluginy Claude Code", "codex": "Pluginy Codex", "skills": "Skille agentów"}
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 ITEM, STATE = Qt.ItemDataRole.UserRole, Qt.ItemDataRole.UserRole + 1
+LOG_FILE = (Path(os.environ.get("LOCALAPPDATA", update.HOME)) / "UpdateWin" / "update.log" if os.name == "nt"
+            else update.HOME / ".updatewin.log")
 
 THEMES = {
     "light": dict(bg="#f5f5f3", surface="#ffffff", border="#e3e3df", text="#1d1d1b", muted="#74746f",
@@ -92,7 +96,8 @@ def stream_call(args: list[str]) -> bool:
     """update.call for the GUI: same command, output streamed line by line to sys.stdout (the log)."""
     print(f"$ {' '.join(args)}", flush=True)
     with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                          text=True, encoding="utf-8", errors="replace", env=update.ENV) as p:
+                          text=True, encoding="utf-8", errors="replace", env=update.ENV,
+                          creationflags=update.CREATIONFLAGS) as p:
         for line in p.stdout:
             print(line, end="", flush=True)
     return p.returncode == 0
@@ -116,7 +121,7 @@ class Bus(QObject):
 
 
 class Window(QMainWindow):
-    def __init__(self):
+    def __init__(self, log_path: Path | None = None):
         super().__init__()
         self.setWindowTitle("UpdateWin")
         self.resize(1000, 700)
@@ -208,6 +213,42 @@ class Window(QMainWindow):
         QGuiApplication.styleHints().colorSchemeChanged.connect(self.apply_theme)
         self.apply_theme()
         self.refresh_count()
+        self.open_log_file(log_path)
+
+    # MARK: - Log
+
+    def open_log_file(self, path: Path | None):
+        self.log_file = None
+        if path:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if path.exists() and path.stat().st_size > 1_000_000:
+                    path.replace(path.with_name(path.name + ".1"))  # shortcut: one previous file kept
+                self.log_file = open(path, "a", encoding="utf-8")
+            except OSError as e:
+                self.append_log(f"!! nie można zapisać dziennika do {path}: {e}\n")
+        self.append_log(f"=== UpdateWin {datetime.now():%Y-%m-%d %H:%M:%S} · {platform.platform()} · "
+                        f"Python {platform.python_version()}{f' · {path}' if self.log_file else ''}\n")
+
+    def append_log(self, text: str):
+        cursor = self.log.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.insertText(text)
+        self.log.setTextCursor(cursor)
+        self.log.ensureCursorVisible()
+        if self.log_file:
+            try:
+                self.log_file.write(text)
+                self.log_file.flush()
+            except OSError:  # disk full / file gone: keep the on-screen log, an exception here would abort Qt
+                self.log_file = None
+
+    def report_exception(self, exc_type, exc, tb):
+        """sys/threading excepthook: PyQt6 aborts on an exception in a slot, without a trace under pythonw."""
+        text = "".join(traceback.format_exception(exc_type, exc, tb))
+        self.bus.log.emit(f"\n!! nieobsłużony wyjątek:\n{text}")
+        if sys.stderr:
+            sys.stderr.write(text)
 
     # MARK: - Look
 
@@ -248,13 +289,6 @@ class Window(QMainWindow):
         self.spinner.start() if busy else self.spinner.stop()
         self.refresh_count()
 
-    def append_log(self, text: str):
-        cursor = self.log.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
-        cursor.insertText(text)
-        self.log.setTextCursor(cursor)
-        self.log.ensureCursorVisible()
-
     # MARK: - Selection
 
     def plan(self) -> dict[str, list[update.Item]]:
@@ -291,7 +325,7 @@ class Window(QMainWindow):
         self.tree.blockSignals(False)
         self.spin()
         self.set_busy(True)
-        self.append_log(f"{chr(10) if self.log.toPlainText() else ''}— sprawdzanie: {', '.join(names)} ({datetime.now():%H:%M:%S})\n")
+        self.append_log(f"\n— sprawdzanie: {', '.join(names)} ({datetime.now():%H:%M:%S})\n")
         threading.Thread(target=self._check_all, args=(names,), daemon=True).start()
 
     def _check_all(self, names: list[str]):
@@ -390,10 +424,13 @@ class Window(QMainWindow):
 
 def main() -> int:
     update.call = stream_call  # live output goes to the log, not the (absent) console
+    update.CREATIONFLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setApplicationName("UpdateWin")
-    w = Window()
+    w = Window(LOG_FILE)
+    sys.excepthook = w.report_exception
+    threading.excepthook = lambda a: w.report_exception(a.exc_type, a.exc_value, a.exc_traceback)
     w.show()
     QTimer.singleShot(0, w.check)
     return app.exec()
