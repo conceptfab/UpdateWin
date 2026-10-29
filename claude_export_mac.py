@@ -2,7 +2,8 @@
 """Eksport zestawu Claude Code z Maca — jeden plik, bez innych zależności.
 
 Uruchom w Terminalu:   python3 claude_export_mac.py
-Wynik:                 claude-setup.json w repo (obok skryptu) — commit + push, na Windows pull i `claude_sync.py import`
+Wynik:                 claude-setup.json + skills/ (kopie folderów skilli) w repo, obok skryptu —
+                       commit + push, na Windows pull i `claude_sync.py import --apply`
 
 Zbiera: marketplace'y (~/.claude/plugins/known_marketplaces.json), pluginy (`claude plugin list --json`),
 skille `npx skills` (~/.agents/.skill-lock.json), nazwy lokalnych skilli (~/.claude/skills/*).
@@ -82,16 +83,26 @@ def local_skills():
     return sorted(p.name for p in d.iterdir() if p.is_dir()) if d.is_dir() else []
 
 
+def bundle_skills(dest):
+    """Kopie folderów ~/.claude/skills (linki z npx rozwiązane) — na Windows import bierze stąd to, czego npx nie da."""
+    shutil.rmtree(dest, ignore_errors=True)
+    names = [n for n in local_skills() if not n.startswith(".")]
+    for n in names:
+        shutil.copytree(HOME / ".claude/skills" / n, dest / n, ignore=shutil.ignore_patterns(".git", ".DS_Store"))
+    return names
+
+
 def main():
     snap = {"marketplaces": marketplaces(), "plugins": plugins(), "skills": skills(), "localSkills": local_skills()}
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(snap, indent=2, ensure_ascii=False), encoding="utf-8")
+    bundled = bundle_skills(OUT.parent / "skills")
     print(f"Zapisano {OUT}")
     print(f"  marketplace'y: {len(snap['marketplaces'])}")
     print(f"  pluginy:       {len(snap['plugins'])}")
     print(f"  skille (npx):  {len(snap['skills'])}")
-    print(f"  skille lokalne:{len(snap['localSkills']):>2}  (do skopiowania ręcznie z ~/.claude/skills)")
-    print("\nTeraz: git add claude-setup.json && git commit -m 'claude setup' && git push")
+    print(f"  skille lokalne:{len(snap['localSkills']):>2}  (foldery skopiowane do {OUT.parent / 'skills'}: {len(bundled)})")
+    print("\nTeraz: git add claude-setup.json skills && git commit -m 'claude setup' && git push")
     print("Na Windows:  git pull  i  python claude_sync.py import --apply")
     return 0
 

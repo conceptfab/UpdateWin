@@ -112,6 +112,20 @@ class UpdateTests(unittest.TestCase):
         for name in update.PY_LEAKS:
             self.assertNotIn(name, update.ENV)
 
+    def test_sync_copies_bundled_skills_only_where_missing(self):
+        import claude_sync
+        bundle, local = self.tmp / "bundle", self.tmp / "local"
+        write(bundle / "gone-upstream" / "SKILL.md", "a")
+        write(bundle / "kept" / "SKILL.md", "new")
+        write(local / "kept" / "SKILL.md", "old")
+        with mock.patch.object(claude_sync, "BUNDLE", bundle), mock.patch.object(claude_sync, "LOCAL_SKILLS", local):
+            missing = claude_sync.diff({"localSkills": [".trash", "gone-upstream", "kept", "nowhere"]},
+                                       {"marketplaces": {}, "plugins": [], "skills": {}, "localSkills": ["kept"]})
+            self.assertEqual(missing["localSkills"], ["gone-upstream", "nowhere"])
+            self.assertEqual(claude_sync.copy_bundled(missing["localSkills"]), ["gone-upstream"])
+        self.assertTrue((local / "gone-upstream" / "SKILL.md").exists())
+        self.assertEqual((local / "kept" / "SKILL.md").read_text(encoding="utf-8"), "old")
+
 
 if __name__ == "__main__":
     unittest.main()

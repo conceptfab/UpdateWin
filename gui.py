@@ -344,8 +344,9 @@ class Window(QMainWindow):
     def on_checked(self, name: str, state: str, payload):
         row = self.rows[name]
         if state == "skip":
-            self.set_status(row, "skip", "pominięte")
+            self.set_status(row, "skip", f"pominięte: {payload}")
             row.setToolTip(3, payload)
+            self.append_log(f"-- {name}: pominięte ({payload})\n")
             return
         if state == "error":
             self.set_status(row, "error", "błąd")

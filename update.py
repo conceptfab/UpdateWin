@@ -320,7 +320,7 @@ def compare_skills(lock: dict, trees: dict[str, dict[str, str]]) -> list[Item]:
 def check_skills() -> list[Item]:
     lock = read_json(SKILL_LOCK)
     if not lock or not lock.get("skills"):
-        raise Skip("brak ~/.agents/.skill-lock.json")
+        raise Skip("brak skilli npx na tym komputerze (~/.agents/.skill-lock.json)")
     repos = sorted({s["source"] for s in lock["skills"].values()
                     if s.get("sourceType") == "github" and REPO.match(s.get("source", ""))})
     trees, errors = {}, []

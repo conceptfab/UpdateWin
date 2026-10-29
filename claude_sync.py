@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """claude_sync: przenosi zestaw dodatków Claude Code / skilli z jednego komputera na drugi.
 
-Na Macu (źródło):     python3 claude_sync.py export claude-setup.json
-Na Windows (cel):     python claude_sync.py import claude-setup.json            # podgląd: czego brakuje
-                      python claude_sync.py import claude-setup.json --apply    # doinstaluj brakujące
+Na Macu (źródło):     python3 claude_export_mac.py   (albo claude_sync.py export), potem git commit + push
+Na Windows (cel):     git pull, python claude_sync.py import            # podgląd: czego brakuje
+                      python claude_sync.py import --apply    # doinstaluj brakujące
 
 Eksport: marketplace'y (~/.claude/plugins/known_marketplaces.json), pluginy (`claude plugin list --json`),
-skille `npx skills` (~/.agents/.skill-lock.json) i nazwy lokalnych skilli (~/.claude/skills/*).
-Import dodaje brakujące marketplace'y (github / git), instaluje brakujące pluginy i skille z lock.
-Lokalnych skilli i marketplace'ów z folderu nie da się zainstalować zdalnie — są tylko wypisane.
+skille `npx skills` (~/.agents/.skill-lock.json), nazwy lokalnych skilli (~/.claude/skills/*)
+i kopie ich folderów w repo/skills.
+Import dodaje brakujące marketplace'y (github / git), instaluje brakujące pluginy i skille z lock,
+a skille, których nie da npx (lokalne albo usunięte z GitHuba), kopiuje z repo/skills.
+Marketplace'ów z folderu nie da się zainstalować zdalnie — są tylko wypisane.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -23,6 +26,7 @@ from update import HOME, SAFE_NAME, REPO, json_body, read_json, run_ok, tool
 
 PLUGINS_DIR = HOME / ".claude" / "plugins"
 LOCAL_SKILLS = HOME / ".claude" / "skills"
+BUNDLE = Path(__file__).resolve().parent / "skills"  # kopie folderów skilli w repo (eksport z Maca)
 GIT_URL = re.compile(r"^https://[\w.-]+/[\w./~-]+$")
 
 
@@ -78,7 +82,8 @@ def diff(want: dict, have: dict) -> dict:
                          if n not in have["marketplaces"]},
         "plugins": [p for p in want.get("plugins") or [] if p not in have["plugins"]],
         "skills": {n: s for n, s in (want.get("skills") or {}).items() if n not in have["skills"]},
-        "localSkills": [n for n in want.get("localSkills") or [] if n not in have["localSkills"]],
+        "localSkills": [n for n in want.get("localSkills") or [] if n not in have["localSkills"]
+                        and not n.startswith(".")],
     }
 
 
@@ -110,8 +115,29 @@ def commands(missing: dict) -> tuple[list[list[str]], list[str]]:
             args += ["--skill", n]
         cmds.append(args)
     for name in missing["localSkills"]:
-        manual.append(f"lokalny skill {name}: skopiuj ~/.claude/skills/{name} z Maca")
+        # skille z lock instaluje npx (i linkuje do ~/.claude/skills); kopia z repo dopiero, gdy npx ich nie da
+        if name not in missing["skills"] and not (BUNDLE / name).is_dir():
+            manual.append(f"lokalny skill {name}: brak w repo/skills — zrób eksport na Macu jeszcze raz")
     return cmds, manual
+
+
+def bundle_skills() -> int:
+    """Kopiuje foldery z ~/.claude/skills (linki rozwiązane) do repo/skills."""
+    shutil.rmtree(BUNDLE, ignore_errors=True)
+    names = [n for n in local_skill_dirs() if not n.startswith(".")]
+    for n in names:
+        shutil.copytree(LOCAL_SKILLS / n, BUNDLE / n, ignore=shutil.ignore_patterns(".git"))
+    return len(names)
+
+
+def copy_bundled(names: list[str]) -> list[str]:
+    """Kopiuje z repo/skills te skille, których nadal brakuje w ~/.claude/skills."""
+    copied = []
+    for n in names:
+        if SAFE_NAME.match(n) and (BUNDLE / n).is_dir() and not (LOCAL_SKILLS / n).exists():
+            shutil.copytree(BUNDLE / n, LOCAL_SKILLS / n)
+            copied.append(n)
+    return copied
 
 
 # MARK: - CLI
@@ -134,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         args.file.write_text(json.dumps(snap, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"Zapisano {args.file}: {len(snap['marketplaces'])} marketplace'ów, {len(snap['plugins'])} pluginów, "
               f"{len(snap['skills'])} skilli (npx skills), {len(snap['localSkills'])} lokalnych skilli")
+        print(f"Skopiowano {bundle_skills()} folderów skilli do {BUNDLE}")
         return 0
 
     want = read_json(args.file)
@@ -141,12 +168,16 @@ def main(argv: list[str] | None = None) -> int:
         p.error(f"nie mogę odczytać {args.file}")
     missing = diff(want, snapshot())
     cmds, manual = commands(missing)
-    if not cmds and not manual:
+    to_copy = [n for n in missing["localSkills"] if n not in missing["skills"] and (BUNDLE / n).is_dir()]
+    if not cmds and not manual and not to_copy:
         print("Ten komputer ma już wszystko z pliku.")
         return 0
     print("Do zainstalowania:" if cmds else "Nic do zainstalowania automatycznie.")
     for c in cmds:
         print("  " + " ".join(c))
+    if to_copy:
+        print(f"Skopiuję z repo/skills do ~/.claude/skills ({len(to_copy)}): {', '.join(to_copy)}")
+        print("  + te skille z npx, których npx już nie da (usunięte z GitHuba), jeśli są w repo/skills")
     if manual:
         print("Ręcznie:")
         for m in manual:
@@ -159,6 +190,9 @@ def main(argv: list[str] | None = None) -> int:
         exe = tool(c[0])  # claude.cmd / npx.cmd przez PATHEXT
         if not update.call([exe, *c[1:]]):
             failed += 1
+    copied = copy_bundled(missing["localSkills"])  # po npx: to, czego npx nie zainstalował
+    if copied:
+        print(f"Skopiowano z repo ({len(copied)}): {', '.join(copied)}")
     print(f"\nGotowe{f', błędy: {failed}' if failed else ''}. Pluginy działają w nowych sesjach.")
     return 1 if failed else 0
 
