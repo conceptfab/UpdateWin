@@ -32,7 +32,7 @@ pip install PyQt6 && python gui.py    # bez uv
 
 Okno sprawdza wszystkie źródła równolegle zaraz po starcie. Nieaktualne pozycje mają pola wyboru (domyślnie zaznaczone), „Aktualizuj (N)” aktualizuje zaznaczone po potwierdzeniu. Wyjście poleceń trafia na żywo do „Dziennika” (stdin zamknięty — bez promptów). Po aktualizacji te źródła są sprawdzane ponownie. „Python dla pip” domyślnie wskazuje Pythona z PATH z pominięciem venv-ów (także środowiska `uv run`). Motyw jasny/ciemny według systemu. Zamknięcie okna w trakcie operacji wymaga potwierdzenia.
 
-Dziennik jest też dopisywany do pliku `%LOCALAPPDATA%\UpdateWin\update.log` (macOS/Linux: `~/.updatewin.log`), z nagłówkiem sesji (system, wersja Pythona); powyżej 1 MB poprzedni plik przechodzi do `update.log.1`. Nieobsłużone wyjątki (wątek GUI i wątki robocze) trafiają z pełnym tracebackiem do dziennika. Polecenia uruchamiane z GUI nie otwierają okien konsoli (`CREATE_NO_WINDOW`), a `PYTHONUTF8=1` wymusza wyjście pip w UTF-8.
+Dziennik jest też dopisywany do pliku `%LOCALAPPDATA%\UpdateWin\update.log` (macOS/Linux: `~/.updatewin.log`), z nagłówkiem sesji (system, wersja Pythona); powyżej 1 MB poprzedni plik przechodzi do `update.log.1`. Nieobsłużone wyjątki (wątek GUI i wątki robocze) trafiają z pełnym tracebackiem do dziennika. Procesy potomne nie dziedziczą `__PYVENV_LAUNCHER__`, `PYTHONHOME`, `PYTHONPATH`, `PYTHONEXECUTABLE` ani `VIRTUAL_ENV` (GUI działa w venv uv; bez tego Python dla pip ładował cudzą bibliotekę standardową — „SRE module mismatch”). Polecenia uruchamiane z GUI nie otwierają okien konsoli (`CREATE_NO_WINDOW`), a `PYTHONUTF8=1` wymusza wyjście pip w UTF-8.
 
 Kod wyjścia: `0` — wszystko się udało, `1` — któreś źródło lub aktualizacja zakończyły się błędem.
 
@@ -55,6 +55,20 @@ Kod wyjścia: `0` — wszystko się udało, `1` — któreś źródło lub aktua
 - **codex**: `version` z `plugin list` = wersja w marketplace; zainstalowana = folder wersji w `~/.codex/plugins/cache/<marketplace>/<plugin>/`. Brak folderu z tą wersją = nieaktualny. Bez folderu w ogóle — pomijany.
 - **skills**: `skillFolderHash` w lock = sha drzewa folderu skilla w git. Najnowszy = sha tego folderu w `GET api.github.com/repos/<repo>/git/trees/HEAD?recursive=1` (jedno zapytanie na repo). Skille usunięte z repo pomijane. Wersje pokazywane jako 7 znaków sha. `GITHUB_TOKEN` (opcjonalny) podnosi limit z 60 do 5000 zapytań/h. Gdy część repo nie odpowie (np. limit), wynik dla reszty jest pokazany z ostrzeżeniem; gdy żadne — błąd źródła. `skills update` aktualizuje wszystkie skille z lock naraz.
 - Odświeżanie marketplace'ów (claude/codex) jest „best effort”: błąd jednego marketplace'u nie przerywa sprawdzania.
+
+## 2.2 Przenoszenie zestawu między komputerami (`claude_sync.py`)
+
+Logowanie synchronizuje tylko pluginy i skille aplikacji Claude. Pluginy Claude Code CLI (`~/.claude/plugins`) i skille `npx skills` (`~/.agents`) każdy komputer ma osobno.
+
+```
+python3 claude_sync.py export claude-setup.json            # komputer źródłowy (np. Mac)
+python claude_sync.py import claude-setup.json             # cel: podgląd brakujących
+python claude_sync.py import claude-setup.json --apply     # cel: doinstaluj
+```
+
+- Import po kolei: `claude plugin marketplace add <repo|url>` → `claude plugin install <plugin@marketplace>` → `npx -y skills add <repo> -g -y --skill <name> …` (jedno polecenie na repo).
+- Tylko wypisywane (ręcznie): marketplace'y z lokalnego folderu, pluginy `@synced` / `@skills-dir`, lokalne skille `~/.claude/skills/*`.
+- Walidacja jak w `update.py` (`SAFE_NAME`, `REPO`, adresy git tylko `https://`).
 
 ## 3. Zachowanie
 1. Brak narzędzia (np. `codex` nie na PATH, brak lock skilli) → źródło oznaczone „pominięte”, bez błędu.

@@ -108,6 +108,10 @@ class UpdateTests(unittest.TestCase):
         self.assertFalse(inside.exists())
         self.assertTrue(outside.exists())
 
+    def test_env_drops_venv_variables_for_child_python(self):
+        for name in update.PY_LEAKS:
+            self.assertNotIn(name, update.ENV)
+
 
 if __name__ == "__main__":
     unittest.main()
