@@ -3,7 +3,12 @@
     "allow": [
       "Bash(python -c ' *)",
       "Bash(python claude_sync.py import --help)",
-      "Bash(python -m pytest -q)"
+      "Bash(python -m pytest -q)",
+      "PowerShell(Get-Command claude, codex -All -ErrorAction SilentlyContinue)",
+      "PowerShell(claude --version)",
+      "PowerShell(codex --version)",
+      "PowerShell(npm ls -g --depth=0 2>$null)",
+      "PowerShell(codex --help 2>&1 | Select-Object -First 40; \"-----\"; claude update --help 2>&1; \"-----\"; Select-String -Path \"$HOME\\\\.claude\\\\settings.json\" -Pattern \"autoUpdates|installMethod\" ; Select-String -Path \"$HOME\\\\.claude.json\" -Pattern '\"installMethod\"|\"autoUpdates\"' ; \"-----\"; npm view @anthropic-ai/claude-code dist-tags --json; npm view @openai/codex dist-tags --json)"
     ]
   }
 }

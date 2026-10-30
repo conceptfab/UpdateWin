@@ -78,6 +78,27 @@ class UpdateTests(unittest.TestCase):
         items = update.parse_codex_plugins(out, self.tmp)
         self.assertEqual([(i.name, i.installed, i.latest) for i in items], [("ponytail@ponytail", "5.3.2", "5.3.3")])
 
+    def test_cli_check_uses_claude_channel_and_skips_missing_tools(self):
+        write(self.tmp / ".claude" / "settings.json", {"autoUpdatesChannel": "stable"})
+        views = {"@anthropic-ai/claude-code@stable": "2.1.308", "@openai/codex@latest": "0.166.0"}
+        with mock.patch.object(update, "HOME", self.tmp), \
+             mock.patch.object(update.shutil, "which", side_effect=lambda n: None if n == "claude" else n), \
+             mock.patch.object(update, "tool", return_value="npm"), \
+             mock.patch.object(update, "run_ok", return_value="codex-cli 0.165.0\n"), \
+             mock.patch.object(update, "npm_view", side_effect=lambda _, spec: views[spec]):
+            items = update.check_cli()
+            self.assertEqual([(i.name, i.installed, i.latest) for i in items], [("codex", "0.165.0", "0.166.0")])
+            self.assertEqual(update.claude_channel(), "stable")
+        with mock.patch.object(update.shutil, "which", return_value=None), self.assertRaises(update.Skip):
+            update.check_cli()
+
+    def test_npm_leaves_claude_and_codex_to_cli_source(self):
+        out = json.dumps({"@openai/codex": {"current": "0.165.0", "latest": "0.166.0"},
+                          "yarn": {"current": "1.0.0", "latest": "1.1.0"}})
+        with mock.patch.object(update, "tool", return_value="npm"), \
+             mock.patch.object(update, "run", return_value=mock.Mock(returncode=1, stdout=out, stderr="")):
+            self.assertEqual([i.name for i in update.check_npm()], ["yarn"])
+
     def test_skills_compare_lock_hash_with_upstream_folder(self):
         lock = {"skills": {
             "same": {"source": "o/r", "skillPath": "skills/same/SKILL.md", "skillFolderHash": "aaaaaaaaa"},
@@ -125,6 +146,34 @@ class UpdateTests(unittest.TestCase):
             self.assertEqual(claude_sync.copy_bundled(missing["localSkills"]), ["gone-upstream"])
         self.assertTrue((local / "gone-upstream" / "SKILL.md").exists())
         self.assertEqual((local / "kept" / "SKILL.md").read_text(encoding="utf-8"), "old")
+
+    def test_sync_v2_file_mirrors_active_set_one_to_one(self):
+        import claude_sync
+        bundle, local = self.tmp / "bundle", self.tmp / "local"
+        write(bundle / "mod" / "SKILL.md", "mac")
+        write(local / "mod" / "SKILL.md", "win")
+        write(local / "win-only" / "SKILL.md", "x")
+        write(local / "npx-extra" / "SKILL.md", "x")
+        want = {"version": 2, "marketplaces": {}, "plugins": ["a@m", "b@m", "c@m"], "disabledPlugins": ["d@m"],
+                "skills": {"s1": {"source": "o/r", "sourceType": "github"}}, "localSkills": ["mod", "s1"]}
+        have = {"marketplaces": {}, "plugins": ["a@m", "d@m", "e@m"], "disabledPlugins": ["b@m"],
+                "skills": {"s1": {}, "npx-extra": {}}, "localSkills": ["mod", "npx-extra", "s1", "win-only"]}
+        with mock.patch.object(claude_sync, "BUNDLE", bundle), mock.patch.object(claude_sync, "LOCAL_SKILLS", local):
+            m = claude_sync.diff(want, have)
+            self.assertEqual((m["plugins"], m["enable"], m["disable"]), (["c@m"], ["b@m"], ["d@m", "e@m"]))
+            self.assertEqual((m["removeSkills"], m["trashLocal"], m["replaceLocal"]),
+                             (["npx-extra"], ["win-only"], ["mod"]))
+            cmds, _ = claude_sync.commands(m)
+            self.assertIn(["claude", "plugin", "disable", "e@m", "--scope", "user"], cmds)
+            self.assertIn(["npx", "-y", "skills", "remove", "-g", "-y", "npx-extra"], cmds)
+            with mock.patch.object(claude_sync.update, "call", return_value=True):
+                claude_sync.apply(claude_sync.Plan(want, m, [], [], []))
+            self.assertEqual((local / "mod" / "SKILL.md").read_text(encoding="utf-8"), "mac")
+            self.assertFalse((local / "win-only").exists())
+            self.assertEqual(len(list((local / ".trash").iterdir())), 2)  # old mod + win-only, recoverable
+            # old (v1) file: only adds what is missing
+            m1 = claude_sync.diff({**want, "version": 1}, have)
+            self.assertEqual((m1["plugins"], m1["enable"], m1["disable"], m1["trashLocal"]), (["c@m"], [], [], []))
 
 
 if __name__ == "__main__":

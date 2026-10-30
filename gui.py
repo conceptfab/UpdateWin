@@ -29,9 +29,11 @@ from PyQt6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QHeaderView, 
                              QMainWindow, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton,
                              QSplitter, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
+import claude_sync
 import update
 
-TITLES = {"npm": "Globalne pakiety npm", "npx": "Cache npx", "pip": "Pakiety pip",
+MAC = sys.platform == "darwin"  # Mac = źródło zestawu Claude Code, Windows = cel (claude_sync.py)
+TITLES = {"npm": "Globalne pakiety npm", "npx": "Cache npx", "pip": "Pakiety pip", "cli": "Claude Code i Codex",
           "claude": "Pluginy Claude Code", "codex": "Pluginy Codex", "skills": "Skille agentów"}
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 ITEM, STATE = Qt.ItemDataRole.UserRole, Qt.ItemDataRole.UserRole + 1
@@ -118,6 +120,7 @@ class Bus(QObject):
     log = pyqtSignal(str)
     checked = pyqtSignal(str, str, object)  # source, "ok" | "skip" | "error", items | message
     finished = pyqtSignal(object)  # sources to re-check after an update, or None
+    planned = pyqtSignal(object)  # claude_sync.Plan | Exception
 
 
 class Window(QMainWindow):
@@ -133,6 +136,7 @@ class Window(QMainWindow):
         self.bus.log.connect(self.append_log)
         self.bus.checked.connect(self.on_checked)
         self.bus.finished.connect(self.on_finished)
+        self.bus.planned.connect(self.on_planned)
         self.mono = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
         self.mono.setPointSizeF(self.font().pointSizeF())
 
@@ -150,9 +154,11 @@ class Window(QMainWindow):
         titles.addWidget(self.subtitle)
         header.addLayout(titles)
         header.addStretch()
+        self.sync_btn = QPushButton("Eksportuj na Windows" if MAC else "Synchronizuj z Maca", clicked=self.sync)
+        self.sync_btn.setToolTip("Ten sam aktywny zestaw pluginów, skilli i modów Claude Code na Macu i Windows (1:1)")
         self.check_btn = QPushButton("Sprawdź ponownie", clicked=lambda: self.check())
         self.update_btn = QPushButton("Aktualizuj", objectName="primary", clicked=self.update_selected)
-        for b in (self.check_btn, self.update_btn):
+        for b in (self.sync_btn, self.check_btn, self.update_btn):
             b.setCursor(Qt.CursorShape.PointingHandCursor)
             header.addWidget(b)
         outer.addLayout(header)
@@ -284,7 +290,7 @@ class Window(QMainWindow):
     def set_busy(self, busy: bool):
         self.busy = busy
         self.progress.setMaximum(0 if busy else 1)  # 0 = indeterminate animation
-        for w in (self.check_btn, self.refresh, self.python):
+        for w in (self.sync_btn, self.check_btn, self.refresh, self.python):
             w.setEnabled(not busy)
         self.spinner.start() if busy else self.spinner.stop()
         self.refresh_count()
@@ -400,6 +406,69 @@ class Window(QMainWindow):
                     failed.append(name)
             print(f"\n— koniec aktualizacji{': błędy w ' + ', '.join(failed) if failed else ''}")
         self.bus.finished.emit(list(plan))
+
+    # MARK: - Mac -> Windows (claude_sync)
+
+    def sync(self):
+        if self.busy:
+            return
+        if MAC and QMessageBox.question(
+                self, "Eksport", "Zapisać aktywny zestaw (pluginy, skille, mody) do repo i wysłać go "
+                                 "(git commit + push)?") != QMessageBox.StandardButton.Yes:
+            return
+        self.set_busy(True)
+        self.append_log(f"\n— {'eksport zestawu' if MAC else 'synchronizacja z Maca'} ({datetime.now():%H:%M:%S})\n")
+        threading.Thread(target=self._export if MAC else self._plan_sync, daemon=True).start()
+
+    def _export(self):
+        with contextlib.redirect_stdout(LogStream(self.bus.log)):
+            try:
+                claude_sync.export(claude_sync.SETUP_FILE)
+                print("Wysłane — na Windows: „Synchronizuj z Maca”." if claude_sync.publish(claude_sync.SETUP_FILE)
+                      else "!! git commit / push nie powiódł się")
+            except Exception as e:  # noqa: BLE001 - reported in the log
+                print(f"!! eksport: {e}")
+        self.bus.finished.emit(None)
+
+    def _plan_sync(self):
+        with contextlib.redirect_stdout(LogStream(self.bus.log)):
+            if not claude_sync.git_pull():
+                print("!! git pull nie powiódł się — używam lokalnego claude-setup.json")
+            try:
+                plan = claude_sync.make_plan(claude_sync.SETUP_FILE)
+            except Exception as e:  # noqa: BLE001 - shown by on_planned
+                plan = e
+        self.bus.planned.emit(plan)
+
+    def on_planned(self, plan):
+        self.set_busy(False)
+        if isinstance(plan, Exception):
+            self.append_log(f"!! synchronizacja: {plan}\n")
+            QMessageBox.warning(self, "Synchronizacja z Maca", str(plan))
+            return
+        if plan.empty:
+            self.append_log(f"Ten komputer ma już ten sam zestaw co Mac ({plan.source}).\n")
+            QMessageBox.information(self, "Synchronizacja z Maca", "Ten komputer ma już ten sam zestaw co Mac.")
+            return
+        details = plan.describe()
+        self.append_log(details + "\n")
+        summary = "\n".join(f"• {title}: {len(names)}" for title, names in plan.sections())
+        box = QMessageBox(QMessageBox.Icon.Question, "Synchronizacja z Maca",
+                          f"Ustawić tu ten sam zestaw co na Macu?\n({plan.source})\n\n{summary}",
+                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, self)
+        box.setDetailedText(details)
+        if box.exec() != QMessageBox.StandardButton.Yes:
+            return
+        self.set_busy(True)
+        threading.Thread(target=self._apply_sync, args=(plan,), daemon=True).start()
+
+    def _apply_sync(self, plan):
+        with contextlib.redirect_stdout(LogStream(self.bus.log)):
+            try:
+                claude_sync.apply(plan)
+            except Exception as e:  # noqa: BLE001 - reported in the log
+                print(f"!! synchronizacja: {e}")
+        self.bus.finished.emit(["claude", "skills"])
 
     def on_finished(self, recheck):
         self.set_busy(False)

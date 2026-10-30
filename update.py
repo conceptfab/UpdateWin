@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""UpdateWin: check and update npm, npx cache, pip and Claude Code / Codex add-ons (see SPEC.md)."""
+"""UpdateWin: check and update npm, npx cache, pip, the Claude Code / Codex CLIs and their add-ons (see SPEC.md)."""
 from __future__ import annotations
 
 import argparse
@@ -115,7 +115,8 @@ def check_npm() -> list[Item]:
     r = run([tool("npm"), "outdated", "-g", "--json"])
     if r.returncode not in (0, 1):  # exit 1 = "outdated packages exist"
         raise RuntimeError(f"npm outdated: exit {r.returncode} {r.stderr.strip()[-300:]}")
-    return parse_npm_outdated(r.stdout)
+    # npm-installed claude / codex belong to the `cli` source; listing them twice would update them twice.
+    return [i for i in parse_npm_outdated(r.stdout) if i.name not in CLIS.values()]
 
 
 def update_npm(items: list[Item]) -> bool:
@@ -212,6 +213,44 @@ def check_pip(python: str) -> list[Item]:
 def update_pip(python: str, items: list[Item]) -> bool:
     names = safe([i.name for i in items])
     return not names or call([python, "-m", "pip", "install", "--upgrade", *names])
+
+
+# MARK: - Claude Code / Codex CLI
+
+# Command -> npm package with its releases. `claude update` / `codex update` know their own install method
+# (native installer, npm, ...), so one update command fits all of them.
+CLIS = {"claude": "@anthropic-ai/claude-code", "codex": "@openai/codex"}
+
+
+def cli_version(path: str) -> str | None:
+    m = re.search(r"\d+\.\d+\.\d+", run_ok([path, "--version"], 60))
+    return m.group(0) if m else None
+
+
+def claude_channel() -> str:
+    """npm dist-tag Claude Code updates from: `autoUpdatesChannel` in ~/.claude/settings.json."""
+    channel = (read_json(HOME / ".claude" / "settings.json") or {}).get("autoUpdatesChannel")
+    return channel if channel in ("latest", "stable") else "latest"
+
+
+def check_cli() -> list[Item]:
+    paths = {name: shutil.which(name) for name in CLIS}
+    if not any(paths.values()):
+        raise Skip("brak claude i codex na PATH")
+    npm = tool("npm")
+    items = []
+    for name, path in paths.items():
+        if not path:
+            continue
+        tag = claude_channel() if name == "claude" else "latest"
+        installed, latest = cli_version(path), npm_view(npm, f"{CLIS[name]}@{tag}")
+        if latest and vkey(installed) < vkey(latest):
+            items.append(Item(name, installed, latest))
+    return items
+
+
+def update_cli(items: list[Item]) -> bool:
+    return all([call([tool(i.name), "update"]) for i in items if i.name in CLIS])
 
 
 # MARK: - Claude Code plugins
@@ -348,6 +387,7 @@ def sources(args) -> dict:
         "npm": (check_npm, update_npm),
         "npx": (check_npx, update_npx),
         "pip": (lambda: check_pip(args.python), lambda items: update_pip(args.python, items)),
+        "cli": (check_cli, update_cli),
         "claude": (lambda: check_claude(not args.no_refresh), update_claude),
         "codex": (lambda: check_codex(not args.no_refresh), update_codex),
         "skills": (check_skills, update_skills),
@@ -357,8 +397,8 @@ def sources(args) -> dict:
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")  # "→" on a cp1252 console / redirected output
-    all_sources = ["npm", "npx", "pip", "claude", "codex", "skills"]
-    parser = argparse.ArgumentParser(description="Sprawdza i aktualizuje npm, npx, pip oraz dodatki Claude Code i Codex.")
+    all_sources = ["npm", "npx", "pip", "cli", "claude", "codex", "skills"]
+    parser = argparse.ArgumentParser(description="Sprawdza i aktualizuje npm, npx, pip, Claude Code i Codex oraz ich dodatki.")
     parser.add_argument("--update", action="store_true", help="zaktualizuj nieaktualne")
     parser.add_argument("-y", "--yes", action="store_true", help="bez pytania o potwierdzenie")
     parser.add_argument("--only", default=",".join(all_sources), help="źródła po przecinku: " + ",".join(all_sources))
